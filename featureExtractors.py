@@ -11,6 +11,7 @@
 # Student side autograding was added by Brad Miller, Nick Hay, and
 # Pieter Abbeel (pabbeel@cs.berkeley.edu).
 
+SCARED_TIME = 40
 
 "Feature extractors for Pacman game states"
 
@@ -63,6 +64,64 @@ def closestFood(pos, food, walls):
     # no food found
     return None
 
+# def closestCapsule(pos, capsules, walls):
+#     """
+#     closestFood -- this is similar to the function that we have
+#     worked on in the search project; here its all in one place
+#     """
+#     fringe = [(pos[0], pos[1], 0)]
+#     expanded = set()
+#     dists = set()
+#     while fringe:
+#         pos_x, pos_y, dist = fringe.pop(0)
+#         if (pos_x, pos_y) in expanded:
+#             continue
+#         expanded.add((pos_x, pos_y))
+#         # if we find a food at this location then exit
+#         for cap in capsules:
+#             x, y = cap
+#             if x == pos_x and y == pos_y:
+#                 return dist
+#         # otherwise spread out from the location to its neighbours
+#         nbrs = Actions.getLegalNeighbors((pos_x, pos_y), walls)
+#         for nbr_x, nbr_y in nbrs:
+#             fringe.append((nbr_x, nbr_y, dist+1))
+#     # no food found
+#     return None
+
+def closestCapsule(pos, caps):
+    """
+    closestFood -- this is similar to the function that we have
+    worked on in the search project; here its all in one place
+    """
+    distances = [util.manhattanDistance((x, y), (pos[0], pos[1])) for x, y in caps]
+
+    # no food found
+    if len(distances) == 0:
+        return None
+    return min(distances)
+def closestGhost(pos, ghosts):
+    """
+    closestFood -- this is similar to the function that we have
+    worked on in the search project; here its all in one place
+    """
+    distances = [util.manhattanDistance((x, y), (pos[0], pos[1])) for x, y in ghosts]
+
+    # no food found
+    if len(distances) == 0:
+        return None
+    return min(distances)
+
+def isTunnel(dir, pos, walls):
+    n = 0
+    nbrs = Actions.getLegalNeighbors((pos[0], pos[1]), walls)
+    for nbr_x, nbr_y in nbrs:
+        n += 1
+    # no food found
+    return n/5
+
+
+
 class SimpleExtractor(FeatureExtractor):
     """
     Returns simple features for a basic reflex Pacman:
@@ -77,6 +136,8 @@ class SimpleExtractor(FeatureExtractor):
         food = state.getFood()
         walls = state.getWalls()
         ghosts = state.getGhostPositions()
+        capsules = state.getCapsules()
+        path_len = (walls.width * walls.height)
 
         features = util.Counter()
 
@@ -99,5 +160,26 @@ class SimpleExtractor(FeatureExtractor):
             # make the distance a number less than one otherwise the update
             # will diverge wildly
             features["closest-food"] = float(dist) / (walls.width * walls.height)
+
+        for g in ghosts:
+            for cap in capsules:
+                x, y = cap
+                x_g, y_g = g
+                if next_x == x and next_y == y and x_g != x and y_g != y:
+                    features["eats-capsule"] = 1.0
+
+        dist_c = closestCapsule((next_x, next_y), capsules)
+        if dist_c is not None:
+            # make the distance a number less than one otherwise the update
+            # will diverge wildly
+            features["closest-cap"] = (float(dist_c) / (walls.width * walls.height))
+
+        dist_g = closestGhost((next_x, next_y), ghosts)
+        if dist_g is not None:
+            # make the distance a number less than one otherwise the update
+            # will diverge wildly
+            features["closest-ghost"] = (float(dist_g) / (walls.width * walls.height))
+
+
         features.divideAll(10.0)
         return features
